@@ -123,7 +123,10 @@ function draw() {
   // Ensure at least one hand is detected
   if (hands && hands.length > 0) {
     for (let hand of hands) {
-      if (hand.confidence > 0.1 && hand.keypoints) {
+      // 在 ml5 v1 中，屬性名稱是 score 而不是 confidence
+      // 如果偵測不到，可以將 0.1 調低或直接檢查 hand.keypoints 是否存在
+      if (hand.score > 0.1 && hand.keypoints) {
+        
         // Loop through keypoints and draw circles
         for (let i = 0; i < hand.keypoints.length; i++) {
           let kp = hand.keypoints[i];
@@ -133,7 +136,7 @@ function draw() {
           // 繪製關節小圓圈
           push();
           noStroke();
-          // 修正判斷條件：使用 toLowerCase() 確保大小寫都能正確偵測
+          // 判斷左右手顏色
           if (hand.handedness.toLowerCase() === "left") {
             fill(255, 0, 255); // 左手紫色
           } else {
@@ -142,7 +145,7 @@ function draw() {
           circle(px, py, 12);
           pop();
 
-          // 在指尖 (4, 8, 12, 16, 20) 產生上升水泡
+          // 需求：在編號 4, 8, 12, 16, 20 產生水泡
           if ([4, 8, 12, 16, 20].includes(i)) {
             if (frameCount % 5 === 0) {
               bubbles.push({
@@ -159,22 +162,23 @@ function draw() {
 
         // 串接關鍵點連線
         push(); 
-        strokeWeight(3);
+        strokeWeight(4); // 稍微加粗線條方便觀察
         noFill();
 
-        // 根據左右手設定連線顏色 (同樣加上大小寫相容處理)
+        // 根據左右手設定連線顏色
         if (hand.handedness.toLowerCase() === "left") {
-          stroke(255, 0, 255);
+          stroke(255, 0, 255); // 左手紫色
         } else {
-          stroke(255, 255, 0);
+          stroke(255, 255, 0);   // 右手黃色
         }
 
+        // 需求：0-4, 5-8, 9-12, 13-16, 17-20 串接成線
         let fingerParts = [
-          [0, 1, 2, 3, 4],    // 拇指 (含腕點)
-          [5, 6, 7, 8],       // 食指
-          [9, 10, 11, 12],    // 中指
-          [13, 14, 15, 16],   // 無名指
-          [17, 18, 19, 20]    // 小指
+          [0, 1, 2, 3, 4],
+          [5, 6, 7, 8],
+          [9, 10, 11, 12],
+          [13, 14, 15, 16],
+          [17, 18, 19, 20]
         ];
 
         for (let part of fingerParts) {
