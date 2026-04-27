@@ -126,27 +126,29 @@ function draw() {
       if (hand.confidence > 0.1 && hand.keypoints) {
         // Loop through keypoints and draw circles
         for (let i = 0; i < hand.keypoints.length; i++) {
-          let keypoint = hand.keypoints[i];
+          let kp = hand.keypoints[i];
+          let px = map(kp.x, 0, video.width, x, x + w);
+          let py = map(kp.y, 0, video.height, y, y + h);
 
-          // Color-code based on left or right hand
-          if (hand.handedness == "Left") {
-            fill(255, 0, 255);
-          } else {
-            fill(255, 255, 0);
-          }
-
+          // 繪製關節小圓圈
+          push();
           noStroke();
-          let px = map(keypoint.x, 0, video.width, x, x + w);
-          let py = map(keypoint.y, 0, video.height, y, y + h);
-          circle(px, py, 16);
+          // 修正判斷條件：使用 toLowerCase() 確保大小寫都能正確偵測
+          if (hand.handedness.toLowerCase() === "left") {
+            fill(255, 0, 255); // 左手紫色
+          } else {
+            fill(255, 255, 0); // 右手黃色
+          }
+          circle(px, py, 12);
+          pop();
 
           // 在指尖 (4, 8, 12, 16, 20) 產生上升水泡
           if ([4, 8, 12, 16, 20].includes(i)) {
-            if (frameCount % 5 === 0) { // 稍微降低產生頻率，讓畫面更清爽
+            if (frameCount % 5 === 0) {
               bubbles.push({
                 x: px,
                 y: py,
-                initialX: px, // 紀錄初始位置用於晃動計算
+                initialX: px,
                 size: random(10, 25),
                 speed: random(2, 5),
                 alpha: 255
@@ -154,21 +156,21 @@ function draw() {
             }
           }
         }
+
         // 串接關鍵點連線
-        push(); // 隔離線條樣式
-        strokeWeight(4); // 設定線條粗細
+        push(); 
+        strokeWeight(3);
         noFill();
 
-        // 根據左右手設定連線顏色
-        if (hand.handedness == "Left") {
-          stroke(255, 0, 255); // 左手桃紅色/紫色
+        // 根據左右手設定連線顏色 (同樣加上大小寫相容處理)
+        if (hand.handedness.toLowerCase() === "left") {
+          stroke(255, 0, 255);
         } else {
-          stroke(255, 255, 0);   // 右手黃色
+          stroke(255, 255, 0);
         }
 
-        // 定義手指連線組：0-4(拇指連腕), 5-8(食指), 9-12(中指), 13-16(無名指), 17-20(小指)
         let fingerParts = [
-          [0, 1, 2, 3, 4],    // 拇指
+          [0, 1, 2, 3, 4],    // 拇指 (含腕點)
           [5, 6, 7, 8],       // 食指
           [9, 10, 11, 12],    // 中指
           [13, 14, 15, 16],   // 無名指
