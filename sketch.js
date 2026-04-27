@@ -6,6 +6,7 @@ let handPose;
 let hands = [];
 let startButton;
 let isStarted = false;
+let bubbles = []; // 儲存水泡的陣列
 
 function preload() {
   // Initialize HandPose model with flipped video input
@@ -29,10 +30,9 @@ function setup() {
     video: { facingMode: "user" },
     audio: false
   };
-  video = createCapture(constraints, { flipped: true });
+  video = createCapture(constraints);
   video.size(640, 480);
   video.elt.setAttribute('playsinline', ''); // 關鍵：防止 iOS 強制全螢幕播放
-  video.autoplay = true;
   video.hide();
 
   // 建立啟動按鈕，解決手機端必須由使用者點擊才能啟動媒體的問題
@@ -45,13 +45,15 @@ function setup() {
 
 function startDetection() {
   // 檢查是否為安全環境 (HTTPS 或 localhost)
-  if (window.isSecureContext) {
+  // 注意：在手機上若使用 http://192.168... 則 window.isSecureContext 會是 false
+  if (window.isSecureContext || window.location.hostname === "localhost") {
     isStarted = true;
     startButton.hide();
+    video.play(); // 強制觸發影片播放，解決行動裝置自動播放限制
     // Start detecting hands
     handPose.detectStart(video, gotHands);
   } else {
-    alert("相機功能需要 HTTPS 安全連線才能啟動。請確認網址開頭為 https:// 或使用 localhost。");
+    alert("【偵測失敗】手機端必須使用 HTTPS 網址才能開啟相機。\n目前網址為: " + window.location.protocol + "\n建議部署至 GitHub Pages 或使用 ngrok。");
   }
 }
 
@@ -79,12 +81,26 @@ function draw() {
   let x = (width - w) / 2;
   let y = (height - h) / 2;
 
-  // 檢查影片是否已經準備好，避免 width 為 0 導致錯誤
-  if (video.width === 0) {
+  // 在畫布上方加上置中文字 (搬移到檢查影片之前，確保啟動後優先顯示)
+  push(); // 使用 push/pop 確保樣式設定不干擾其他繪製
+  fill(0);
+  stroke(255);      // 設定白色外框
+  strokeWeight(3);  // 設定外框粗細
+  textAlign(CENTER, CENTER);
+  textSize(40);
+  textFont('Arial');
+  // 將文字移動到影像上方區域的中心點
+  text("414730324 吳采璇", width / 2, y / 2);
+  pop();
+
+  // 檢查影片串流是否已經可以播放 (readyState >= 2)
+  if (video.elt.readyState < 2) {
     return;
   }
 
-  image(video, x, y, w, h);
+  translate(x + w, y); // 移動到顯示區域的右側
+  scale(-1, 1);       // 水平反轉
+  image(video, 0, 0, w, h);
 
   // Ensure at least one hand is detected
   if (hands && hands.length > 0) {
@@ -105,8 +121,20 @@ function draw() {
           let px = map(keypoint.x, 0, video.width, x, x + w);
           let py = map(keypoint.y, 0, video.height, y, y + h);
           circle(px, py, 16);
-        }
 
+          // 針對編號 4, 8, 12, 16, 20 的關鍵點產生水泡
+          if ([4, 8, 12, 16, 20].includes(i)) {
+            if (frameCount % 2 === 0) { // 控制水泡產生頻率
+              bubbles.push({
+                x: px,
+                y: py,
+                size: random(10, 25),
+                speed: random(2, 5),
+                alpha: 255
+              });
+            }
+          }
+        }
         // 串接關鍵點連線
         strokeWeight(5); // 設定線條粗細
         if (hand.handedness == "Left") {
@@ -139,6 +167,23 @@ function draw() {
           }
         }
       }
+    }
+  }
+
+  // 更新並繪製水泡
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    let b = bubbles[i];
+    b.y -= b.speed; // 向上漂浮
+    b.alpha -= 3;   // 逐漸透明
+    
+    stroke(255, b.alpha);
+    strokeWeight(2);
+    noFill();
+    circle(b.x, b.y, b.size);
+
+    // 當水泡透明度降為 0 或飄出畫布時「破掉」 (移除)
+    if (b.alpha <= 0 || b.y < 0) {
+      bubbles.splice(i, 1);
     }
   }
 }
