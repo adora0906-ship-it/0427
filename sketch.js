@@ -30,7 +30,9 @@ function setup() {
     video: { facingMode: "user" },
     audio: false
   };
-  video = createCapture(constraints);
+  video = createCapture(constraints, function() {
+    console.log("攝影機串流已就緒");
+  });
   video.size(640, 480);
   video.elt.setAttribute('playsinline', ''); // 關鍵：防止 iOS 強制全螢幕播放
   video.hide();
@@ -44,17 +46,15 @@ function setup() {
 }
 
 function startDetection() {
-  // 檢查是否為安全環境 (HTTPS 或 localhost)
-  // 注意：在手機上若使用 http://192.168... 則 window.isSecureContext 會是 false
-  if (window.isSecureContext || window.location.hostname === "localhost") {
-    isStarted = true;
-    startButton.hide();
-    video.play(); // 強制觸發影片播放，解決行動裝置自動播放限制
-    // Start detecting hands
-    handPose.detectStart(video, gotHands);
-  } else {
-    alert("【偵測失敗】手機端必須使用 HTTPS 網址才能開啟相機。\n目前網址為: " + window.location.protocol + "\n建議部署至 GitHub Pages 或使用 ngrok。");
+  // 即使非 HTTPS 也嘗試啟動，但給予警告
+  if (!window.isSecureContext && window.location.hostname !== "localhost") {
+    console.warn("警告：非安全連線環境，相機可能無法啟動。");
   }
+  
+  isStarted = true;
+  startButton.hide();
+  video.play(); 
+  handPose.detectStart(video, gotHands);
 }
 
 function windowResized() {
@@ -83,24 +83,42 @@ function draw() {
 
   // 在畫布上方加上置中文字 (搬移到檢查影片之前，確保啟動後優先顯示)
   push(); // 使用 push/pop 確保樣式設定不干擾其他繪製
-  fill(0);
   stroke(255);      // 設定白色外框
   strokeWeight(3);  // 設定外框粗細
   textAlign(CENTER, CENTER);
   textSize(40);
   textFont('Arial');
+
+  let txt = "414730324 吳采璇";
+  let tw = textWidth(txt); // 取得文字寬度
+  let th = 40;             // 文字高度（與 textSize 相同）
+  let tx = width / 2;
+  let ty = y / 2;
+
+  // 檢查滑鼠座標是否在文字範圍內
+  if (mouseX > tx - tw/2 && mouseX < tx + tw/2 && mouseY > ty - th/2 && mouseY < ty + th/2) {
+    fill('#ff0055'); // 滑鼠移上去時變成桃紅色
+  } else {
+    fill(0);         // 預設為黑色
+  }
+
   // 將文字移動到影像上方區域的中心點
-  text("414730324 吳采璇", width / 2, y / 2);
+  text(txt, tx, ty);
   pop();
 
-  // 檢查影片串流是否已經可以播放 (readyState >= 2)
-  if (video.elt.readyState < 2) {
+  // 檢查影片寬度是否已載入，若尚未載入則顯示載入中提示
+  if (video.width === 0 || video.elt.readyState < 2) {
+    fill(0);
+    textSize(16);
+    text("正在開啟相機...", width / 2, height / 2);
     return;
   }
 
+  push(); // 隔離矩陣轉換，防止位移累加
   translate(x + w, y); // 移動到顯示區域的右側
   scale(-1, 1);       // 水平反轉
   image(video, 0, 0, w, h);
+  pop(); // 恢復座標系統
 
   // Ensure at least one hand is detected
   if (hands && hands.length > 0) {
